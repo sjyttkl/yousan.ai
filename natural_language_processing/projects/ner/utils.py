@@ -4,7 +4,7 @@ import os
 import shutil
 
 import tensorflow as tf
-from NER.conlleval import return_report
+from conlleval import return_report
 
 models_path = "./models"
 eval_path = "./evaluation"
@@ -99,7 +99,7 @@ def clean(params):
         os.remove(params.map_file)
 
     if os.path.isdir(params.ckpt_path):
-        shutil.rmtree(params.ckpt_path)
+        shutil.rmtree(params.ckpt_path) #删除文件夹
 
     if os.path.isdir(params.summary_path):
         shutil.rmtree(params.summary_path)
@@ -179,9 +179,9 @@ def create_model(session, Model_class, path, load_vec, config, id_to_char, logge
         logger.info("Created model with fresh parameters.")
         session.run(tf.global_variables_initializer())
         if config["pre_emb"]:
-            emb_weights = session.run(model.char_lookup.read_value())
-            emb_weights = load_vec(config["emb_file"],id_to_char, config["char_dim"], emb_weights)
-            session.run(model.char_lookup.assign(emb_weights))
+            emb_weights = session.run(model.char_lookup.read_value())#(4327*100)  ,初始化，Tensor("read:0", shape=(4327*100), dtype=float32)
+            emb_weights = load_vec(config["emb_file"],id_to_char, config["char_dim"], emb_weights) #加载预训练word2vec,
+            session.run(model.char_lookup.assign(emb_weights)) #用预训练的Word2vec 赋值给 随机初始化的值
             logger.info("Load pre-trained embedding.")
     return model
 

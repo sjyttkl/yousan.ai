@@ -1,11 +1,12 @@
 # encoding = utf8
 import numpy as np
 import tensorflow as tf
-from NER.data_utils import iobes_iob
+from data_utils import iobes_iob
 from tensorflow.contrib.crf import crf_log_likelihood
 from tensorflow.contrib.crf import viterbi_decode
 from tensorflow.contrib.layers.python.layers import initializers
-from NER.utils import result_to_json
+# from NER.utils import result_to_json
+from utils import result_to_json
 
 
 class Model(object):
@@ -45,7 +46,7 @@ class Model(object):
         self.dropout = tf.placeholder(dtype=tf.float32,
                                       name="Dropout")
 
-        used = tf.sign(tf.abs(self.char_inputs))
+        used = tf.sign(tf.abs(self.char_inputs))#如果x < 0,则有 y = sign(x) = -1；如果x == 0,则有 0 或者tf.is_nan(x)；如果x > 0,则有1.
         length = tf.reduce_sum(used, reduction_indices=1)
         self.lengths = tf.cast(length, tf.int32)
         self.batch_size = tf.shape(self.char_inputs)[0]
@@ -68,7 +69,7 @@ class Model(object):
         ]
         self.filter_width = 3
         self.num_filter = self.lstm_dim 
-        self.embedding_dim = self.char_dim + self.seg_dim
+        self.embedding_dim = self.char_dim + self.seg_dim #扩展了维度
         self.repeat_times = 4
         self.cnn_output_width = 0
         
@@ -80,7 +81,7 @@ class Model(object):
             model_inputs = tf.nn.dropout(embedding, self.dropout)
 
             # bi-directional lstm layer
-            model_outputs = self.biLSTM_layer(model_inputs, self.lstm_dim, self.lengths)
+            model_outputs = self.biLSTM_layer(model_inputs, self.lstm_dim, self.lengths)#(?,？，200）
 
             # logits for tags
             self.logits = self.project_layer_bilstm(model_outputs)
@@ -104,11 +105,11 @@ class Model(object):
         with tf.variable_scope("optimizer"):
             optimizer = self.config["optimizer"]
             if optimizer == "sgd":
-                self.opt = tf.train.GradientDescentOptimizer(self.lr)
+                self.opt = tf.train.GradientDescentOptimizer(self.lr)#首先，tf.train.GradientDescentOptimizer旨在对所有步骤中的所有变量使用恒定的学习率。
             elif optimizer == "adam":
-                self.opt = tf.train.AdamOptimizer(self.lr)
+                self.opt = tf.train.AdamOptimizer(self.lr) #自适应矩估计优化算法:是利用自适应学习率的优化算法，Adam 算法和随 机梯度下降算法不同。随机梯度下降算法保持单一的学习率更新所有的参数，学 习率在训练过程中并不会改变。而 Adam 算法通过计算梯度的一阶矩估计和二 阶矩估计而为不同的参数设计独立的自适应性学习率。
             elif optimizer == "adgrad":
-                self.opt = tf.train.AdagradOptimizer(self.lr)
+                self.opt = tf.train.AdagradOptimizer(self.lr) #针对SGD及Momentum存在的问题，2011年John Duchi等发布了AdaGrad（Adaptive Gradient，自适应梯度）优化算法，能够对每个不同参数调整不同的学习率，对频繁变化的参数以更小的步长进行更新，而稀疏的参数以更大的步长更新。对稀疏的数据表现很好，提高了SGD的鲁棒性。
             else:
                 raise KeyError
 
@@ -134,16 +135,16 @@ class Model(object):
             self.char_lookup = tf.get_variable(
                     name="char_embedding",
                     shape=[self.num_chars, self.char_dim],
-                    initializer=self.initializer)
-            embedding.append(tf.nn.embedding_lookup(self.char_lookup, char_inputs))
+                    initializer=self.initializer)#(4732,100)
+            embedding.append(tf.nn.embedding_lookup(self.char_lookup, char_inputs))#（？,?,100）
             if config["seg_dim"]:
                 with tf.variable_scope("seg_embedding"), tf.device('/cpu:0'):
                     self.seg_lookup = tf.get_variable(
                         name="seg_embedding",
                         shape=[self.num_segs, self.seg_dim],
                         initializer=self.initializer)
-                    embedding.append(tf.nn.embedding_lookup(self.seg_lookup, seg_inputs))
-            embed = tf.concat(embedding, axis=-1)
+                    embedding.append(tf.nn.embedding_lookup(self.seg_lookup, seg_inputs))#(?,?,20)
+            embed = tf.concat(embedding, axis=-1)#(?,?,120)
         return embed
 
     def biLSTM_layer(self, model_inputs, lstm_dim, lengths, name=None):
@@ -155,7 +156,7 @@ class Model(object):
             lstm_cell = {}
             for direction in ["forward", "backward"]:
                 with tf.variable_scope(direction):
-                    lstm_cell[direction] = rnn.CoupledInputForgetGateLSTMCell(
+                    lstm_cell[direction] = tf.contrib.rnn.CoupledInputForgetGateLSTMCell( #An extended LSTMCell that has coupled input and forget gates based
                         lstm_dim,
                         use_peepholes=True,
                         initializer=self.initializer,
@@ -169,8 +170,7 @@ class Model(object):
         return tf.concat(outputs, axis=2)
     
     #IDCNN layer 
-    def IDCNN_layer(self, model_inputs, 
-                    name=None):
+    def IDCNN_layer(self, model_inputs,name=None):
         """
         :param idcnn_inputs: [batch_size, num_steps, emb_size] 
         :return: [batch_size, num_steps, cnn_output_width]
@@ -243,7 +243,7 @@ class Model(object):
                 b = tf.get_variable("b", shape=[self.lstm_dim], dtype=tf.float32,
                                     initializer=tf.zeros_initializer())
                 output = tf.reshape(lstm_outputs, shape=[-1, self.lstm_dim*2])
-                hidden = tf.tanh(tf.nn.xw_plus_b(output, W, b))
+                hidden = tf.tanh(tf.nn.xw_plus_b(output, W, b))#（？，？，100）
 
             # project to score of tags
             with tf.variable_scope("logits"):
@@ -253,9 +253,9 @@ class Model(object):
                 b = tf.get_variable("b", shape=[self.num_tags], dtype=tf.float32,
                                     initializer=tf.zeros_initializer())
 
-                pred = tf.nn.xw_plus_b(hidden, W, b)
+                pred = tf.nn.xw_plus_b(hidden, W, b)#（？,13）
 
-            return tf.reshape(pred, [-1, self.num_steps, self.num_tags])
+            return tf.reshape(pred, [-1, self.num_steps, self.num_tags])#(?,?,13)
     
     #Project layer for idcnn by crownpku
     #Delete the hidden layer, and change bias initializer
@@ -275,7 +275,7 @@ class Model(object):
 
                 pred = tf.nn.xw_plus_b(idcnn_outputs, W, b)
 
-            return tf.reshape(pred, [-1, self.num_steps, self.num_tags])
+            return tf.reshape(pred, [-1, self.num_steps, self.num_tags])#(?,?,13)
 
     def loss_layer(self, project_logits, lengths, name=None):
         """

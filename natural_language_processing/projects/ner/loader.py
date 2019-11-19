@@ -10,9 +10,13 @@ def load_sentences(path, lower, zeros):
     """
     Load sentences. A line must contain at least a word and its tag.
     Sentences are separated by empty lines.
+    :param path:  加载的文件
+    :param lower: 是否 需要 字母的归一化
+    :param zeros: 是否需要 把数字转为 0
+    :return: list
     """
-    sentences = []
-    sentence = []
+    sentences = [] # 每一句是一个list
+    sentence = [] #只临时存储已经
     num = 0
     for line in codecs.open(path, 'r', 'utf8'):
         num+=1
@@ -20,7 +24,7 @@ def load_sentences(path, lower, zeros):
         # print(list(line))
         if not line:
             if len(sentence) > 0:
-                if 'DOCSTART' not in sentence[0][0]:
+                if 'DOCSTART' not in sentence[0][0]: # 文档开头，
                     sentences.append(sentence)
                 sentence = []
         else:
@@ -57,7 +61,7 @@ def update_tag_scheme(sentences, tag_scheme):
         elif tag_scheme == 'iobes':
             new_tags = iob_iobes(tags)
             for word, new_tag in zip(s, new_tags):
-                word[-1] = new_tag
+                word[-1] = new_tag #修改tags
         else:
             raise Exception('Unknown tagging scheme!')
 
@@ -67,7 +71,7 @@ def char_mapping(sentences, lower):
     Create a dictionary and a mapping of words, sorted by frequency.
     """
     chars = [[x[0].lower() if lower else x[0] for x in s] for s in sentences]
-    dico = create_dico(chars)
+    dico = create_dico(chars)#统计词频
     dico["<PAD>"] = 10000001
     dico['<UNK>'] = 10000000
     char_to_id, id_to_char = create_mapping(dico)
@@ -109,6 +113,7 @@ def prepare_dataset(sentences, char_to_id, tag_to_id, lower=False, train=True):
     Prepare the dataset. Return a list of lists of dictionaries containing:
         - word indexes
         - word char indexes
+        -分词特征的位置
         - tag indexes
     """
 
@@ -142,7 +147,7 @@ def augment_with_pretrained(dictionary, ext_emb_path, chars):
     #print('Loading pretrained embeddings from %s...' % ext_emb_path)
     assert os.path.isfile(ext_emb_path)
 
-    # Load pretrained embeddings from file
+    # Load pretrained embeddings from file 把预处理embeding里的汉字加入
     pretrained = set([
         line.rstrip().split()[0].strip()
         for line in codecs.open(ext_emb_path, 'r', 'utf-8')
@@ -152,16 +157,16 @@ def augment_with_pretrained(dictionary, ext_emb_path, chars):
     # We either add every word in the pretrained file,
     # or only words given in the `words` list to which
     # we can assign a pretrained embedding
-    if chars is None:
+    if chars is None:  #如果没有需要加载的词，则直接考虑 预训练里的词。
         for char in pretrained:
             if char not in dictionary:
                 dictionary[char] = 0
     else:
-        for char in chars:
+        for char in chars: #如果有需要加载的词，该词 不存在与词典中并且 该 词存在于 预训练中
             if any(x in pretrained for x in [
                 char,
                 char.lower(),
-                re.sub('\d', '0', char.lower())
+                re.sub('\d', '0', char.lower())#把测试集合里的汉字，并且存在于 embedding里(不存在于dict中） 则可以加入  dict中。默认为0
             ]) and char not in dictionary:
                 dictionary[char] = 0
 

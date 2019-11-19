@@ -14,7 +14,7 @@ from loader import load_sentences, update_tag_scheme
 from model import Model
 from utils import get_logger, make_path, clean, create_model, save_model
 from utils import print_config, save_config, load_config, test_ner
-
+#https://mp.weixin.qq.com/s?__biz=MzA3NDIyMjM1NA==&mid=2649036099&idx=1&sn=7671dfd7c4f748c3aa0d12f57956fabf&chksm=8712ab3eb065222862a03a0f18ec62cce6a6a8166656a3477c7c2f492c9749b7b68b75679693&scene=21#wechat_redirect
 root_path=os.getcwd()+os.sep
 flags = tf.app.flags
 flags.DEFINE_boolean("clean",       True,      "clean train folder")
@@ -46,12 +46,12 @@ flags.DEFINE_string("config_file",  "config_file",  "File for config")
 flags.DEFINE_string("script",       "conlleval",    "evaluation script")
 flags.DEFINE_string("result_path",  "result",       "Path for results")
 flags.DEFINE_string("emb_file",     os.path.join(root_path+"data", "vec.txt"),  "Path for pre_trained embedding")
-flags.DEFINE_string("train_file",   os.path.join(root_path+"data", "train.txt"),  "Path for train data")
-flags.DEFINE_string("dev_file",     os.path.join(root_path+"data", "dev.txt"),    "Path for dev data")
-flags.DEFINE_string("test_file",    os.path.join(root_path+"data", "test.txt"),   "Path for test data")
+flags.DEFINE_string("train_file",   os.path.join(root_path+"data", "example1.train"),  "Path for train data")
+flags.DEFINE_string("dev_file",     os.path.join(root_path+"data", "example.dev"),    "Path for dev data")
+flags.DEFINE_string("test_file",    os.path.join(root_path+"data", "example.test"),   "Path for test data")
 
-flags.DEFINE_string("model_type", "idcnn", "Model type, can be idcnn or bilstm")
-#flags.DEFINE_string("model_type", "bilstm", "Model type, can be idcnn or bilstm")
+#flags.DEFINE_string("model_type", "idcnn", "Model type, can be idcnn or bilstm")
+flags.DEFINE_string("model_type", "bilstm", "Model type, can be idcnn or bilstm")
 
 FLAGS = tf.app.flags.FLAGS
 assert FLAGS.clip < 5.1, "gradient clip should't be too much"
@@ -62,6 +62,12 @@ assert FLAGS.optimizer in ["adam", "sgd", "adagrad"]
 
 # config for the model
 def config_model(char_to_id, tag_to_id):
+    """
+    配置下配置文件
+    :param char_to_id: 字符：id
+    :param tag_to_id:  label : id
+    :return:
+    """
     config = OrderedDict()
     config["model_type"] = FLAGS.model_type
     config["num_chars"] = len(char_to_id)
@@ -118,12 +124,12 @@ def train():
     # create maps if not exist
     if not os.path.isfile(FLAGS.map_file):
         # create dictionary for word
-        if FLAGS.pre_emb:
-            dico_chars_train = char_mapping(train_sentences, FLAGS.lower)[0]
+        if FLAGS.pre_emb:#存在预处理的embeding
+            dico_chars_train = char_mapping(train_sentences, FLAGS.lower)[0]#返回词频
             dico_chars, char_to_id, id_to_char = augment_with_pretrained(
                 dico_chars_train.copy(),
                 FLAGS.emb_file,
-                list(itertools.chain.from_iterable(
+                list(itertools.chain.from_iterable(#类似于将迭代序列中的每一个对象作为 itertools.chain 的参数，因此传入的迭代序列中的每一个对象应该也是可迭代的。
                     [[w[0] for w in s] for s in test_sentences])
                 )
             )

@@ -12,7 +12,7 @@ jieba.initialize()
 
 def create_dico(item_list):
     """
-    Create a dictionary of items from a list of list of items.
+    Create a dictionary of items from a list of list of items.返回词频
     """
     assert type(item_list) is list
     dico = {}
@@ -27,8 +27,9 @@ def create_dico(item_list):
 
 def create_mapping(dico):
     """
+    返回 id: 字，字：id
     Create a mapping (item to ID / ID to item) from a dictionary.
-    Items are ordered by decreasing frequency.
+    Items are ordered by decreasing frequency.返回 id: 字，字：id
     """
     sorted_items = sorted(dico.items(), key=lambda x: (-x[1], x[0]))
     id_to_item = {i: v[0] for i, v in enumerate(sorted_items)}
@@ -77,13 +78,13 @@ def iob_iobes(tags):
             if i + 1 != len(tags) and \
                tags[i + 1].split('-')[0] == 'I':
                 new_tags.append(tag)
-            else:
+            else:#如果是最后一个，则是 S 表示单个字符 Single
                 new_tags.append(tag.replace('B-', 'S-'))
         elif tag.split('-')[0] == 'I':
             if i + 1 < len(tags) and \
                     tags[i + 1].split('-')[0] == 'I':
                 new_tags.append(tag)
-            else:
+            else: #结束字符
                 new_tags.append(tag.replace('I-', 'E-'))
         else:
             raise Exception('Invalid IOB format!')
@@ -128,7 +129,7 @@ def get_seg_features(string):
     """
     Segment text with jieba
     features are represented in bies format
-    s donates single word
+    s donates single word,分词
     """
     #def features(self,string):
         #def _w2f(word):
@@ -171,15 +172,15 @@ def create_input(data):
 def load_word2vec(emb_path, id_to_word, word_dim, old_weights):
     """
     Load word embedding from pre-trained file
-    embedding size must match
+    embedding size must match 加载预训练word2vec
     """
     new_weights = old_weights
     print('Loading pretrained embeddings from {}...'.format(emb_path))
-    pre_trained = {}
-    emb_invalid = 0
+    pre_trained = {} #加载预训练的词典。
+    emb_invalid = 0 #无效加载词典的个数
     for i, line in enumerate(codecs.open(emb_path, 'r', 'utf-8')):
         line = line.rstrip().split()
-        if len(line) == word_dim + 1:
+        if len(line) == word_dim + 1: #维度需要一致
             pre_trained[line[0]] = np.array(
                 [float(x) for x in line[1:]]
             ).astype(np.float32)
@@ -187,9 +188,9 @@ def load_word2vec(emb_path, id_to_word, word_dim, old_weights):
             emb_invalid += 1
     if emb_invalid > 0:
         print('WARNING: %i invalid lines' % emb_invalid)
-    c_found = 0
-    c_lower = 0
-    c_zeros = 0
+    c_found = 0 # 预训练里存在多少个词 ，也存在于词典里。
+    c_lower = 0 # 预训练存在英文字母，转换成小写后，存在于词典里
+    c_zeros = 0 # 数字存在于词典里
     n_words = len(id_to_word)
     # Lookup table initialization
     for i in range(n_words):
